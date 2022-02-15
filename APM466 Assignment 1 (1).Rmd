@@ -1,0 +1,423 @@
+---
+title: "MAT1856/APM466 Assignment 1"
+author: Yonglin Liu, 1004877207
+date: February, 2022
+output: pdf_document
+---
+
+## Fundamental Questions - 25 points
+
+### 1.
+
+##### (a).
+
+Governments simply printing money could cause inflation, while governments could easily borrow money by issuing bonds.
+
+##### (b).
+
+It might be because the market expects inflation to fall, or the market predicts the future economy will slow down so that the demand of long-term bonds increases.
+
+##### (c).
+
+The Fed increased asset purchases like Treasuries, then the demand for treasuries went up, then the yields went down, thus the risk free rate decreased to near 0, therefore, businesses and consumers tend to increase their spending which stimulates the economy.
+
+### 2.
+
+The 11 bonds I selected are: “CAN 0.5 Mar 1”, “CAN 0.25 Aug 1(2020)”, “CAN 1.75 Mar 1”, “CAN 0.25 Aug 1(2021)”, “CAN 2.25 Mar 1”, “CAN 1.5 Sep 1”, “CAN 1.25 Mar 1(2025)”, “CAN 0.5 Sep 1”, “CAN 0.25 Mar 1”, “CAN 1 Sep 1”, “CAN 1.25 Mar 1(2027)”. \
+To perform bootstrapping and interpolating, the maturity date of these bonds are about {less than 0.5 years, less than 1 years but greater than 0.5 years, less than 1.5 years but greater than 2 years, … , less than 5.5 years but greater than 5 years} from now respectively. All of these bonds have a term (time length from issue date to maturity date) of about 5 years, except two bonds have a term of around 2 years.
+
+### 3.
+
+The eigenvectors, which also called principle components, are particular linear combination of the stochastic process. Geometrically, the eigenvectors represent the direction of a new coordinate whose variance are maximized. The eigenvalues explained the proportion of total population variance due to the corresponding eigenvectors, which determine the magnitudes of the eigenvectors. For instance, the first eigenvector which has the largest eigenvalue is the linear combination of stochastic process with maximum variance.
+
+## Empirical Questions - 75 points
+
+### 4.
+
+##### (a).
+
+```{r, echo=F, message=F, warning=F}
+# library
+if (!require("jrvFinance")) install.packages("jrvFinance")
+library(jrvFinance)
+if (!require("lubridate")) install.packages("lubridate")
+library(lubridate)
+if (!require("tinytex")) install.packages("tinytex")
+library(tinytex)
+
+# hardcode all the data
+ISIN <- c("CA135087G328", "CA135087L286", "CA135087H490",
+          "CA135087M359", "CA135087J546", "CA135087J967",
+          "CA135087K528", "CA135087K940", "CA135087L518",
+          "CA135087L930", "CA135087M847")
+Coupon <- c(0.50, 0.25, 1.75, 0.25, 2.25, 1.50, 1.25, 0.50, 
+            0.25, 1.00, 1.25)
+Issue_date <- as.Date(c("2016-10-10", "2020-05-03", "2017-10-05",
+                        "2021-05-13", "2018-10-04", "2019-04-04",
+                        "2019-10-10", "2020-04-02", "2020-10-08",
+                        "2021-04-15", "2021-10-14")) 
+Maturity_date <- as.Date(c("2022-03-01", "2022-08-01", "2023-03-01",
+                           "2023-08-01", "2024-03-01", "2024-09-01",
+                           "2025-03-01", "2025-09-01", "2026-03-01",
+                           "2026-09-01", "2027-03-01"))
+Close_Price_date <- as.Date(c("2022-01-10", "2022-01-11",
+                              "2022-01-12","2022-01-13",
+                              "2022-01-14","2022-01-17",
+                              "2022-01-18", "2022-01-19",
+                              "2022-01-20", "2022-01-21"))
+day1 <- c(100.04, 99.8, 100.94, 98.808, 102.31, 100.56, 99.64,
+          96.66, 95.11, 97.66, 98.41)
+day2 <- c(100.03, 99.79, 100.93, 98.8, 102.31, 100.63, 99.67,
+          96.72, 95.17, 97.7, 98.475)
+day3 <- c(100.03, 99.78, 100.91, 98.781, 102.26, 100.62, 99.61,
+          96.77, 95.12, 97.67, 98.4)
+day4 <- c(100.03, 99.77, 100.88, 98.763, 102.22, 100.58, 99.59,
+          96.77, 95.14, 97.695, 98.44)
+day5 <- c(100.02, 99.76, 100.86, 98.736, 102.18, 100.52, 99.49,
+          96.68, 95.04, 97.585, 98.31)
+day6 <- c(100.02, 99.72, 100.76, 98.61, 101.99, 100.29, 99.25,
+           96.43, 94.75, 97.24, 97.955)
+day7 <- c(100, 99.7, 100.71, 98.553, 101.91, 100.21, 99.12, 96.26,
+          94.53, 97.02, 97.7)
+day8 <- c(100, 99.7, 100.71, 98.549, 101.9, 100.15, 99.11, 96.15,
+          94.5, 96.96, 97.66)
+day9 <- c(100, 99.72, 100.71, 98.558, 101.88, 100.17, 99.1, 96.19,
+          94.52, 97, 97.685)
+day10 <- c(100.01, 99.74, 100.75, 98.611, 101.97, 100.27, 99.26,
+           96.31, 94.7, 97.225, 97.94)
+# the dataset for the 11 bonds include all the information we need
+Bond <- cbind(ISIN, Coupon, Issue_date, Maturity_date, day1, day2,
+              day3, day4, day5, day6, day7, day8, day9, day10)
+# the matrix include all the close price in 10 days for 11 bonds
+Close_Price <- matrix(c(day1, day2, day3, day4, day5, day6, day7, 
+                      day8, day9, day10), nrow = 10, ncol = 11, 
+                      byrow = T)
+```
+
+By using formula $P(B)=\sum_i^np_i(1+r/2)^{-t(B)2}$, we can get the YTM for all 11 bonds in 10 days, where P(B) is the dirty price and r(B) is the YTM. Then, plotting the yield curve we get the Figure 1, where each line represent the yield curve of each day. \
+
+In order to compute YTM curve at time to maturity {0.5,1,1.5, 2,...,5} years, I will use linear interpolation $r=r_1+\frac{(r_2-r_1)}{t_2-t_1}*(t-t_1)$ where $t_1<t<t_2$. Then we can get the yield curve with linear interpolation in Figure 2.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+# compute YTM matrix
+ytm <- matrix(rep(0, 110), nrow = 10, ncol = 11, byrow = T)
+for (j in 1:11) {
+  for (i in 1:10) {
+    ytm[i,j] <- bond.yield(settle = Close_Price_date[i], 
+                           mature = Maturity_date[j], 
+                           coupon = Coupon[j]/100, freq = 2, 
+                           price = Close_Price[i,j], 
+                           convention = "ACT/ACT", 
+                           redemption_value = 100)
+  }
+}
+
+# compute time to Maturity 
+time_yr <- matrix(rep(0, 110), nrow = 10, ncol = 11, byrow = T)
+for (j in 1:11) {
+  for (i in 1:10) {
+    time_yr[i,j] <- time_length(
+      interval(ymd(Close_Price_date[i]), ymd(Maturity_date[j])),
+      "year")
+  }
+}
+
+# plot the YTM curve
+par(mfrow=c(1,2))
+color_line = c("palegreen","yellowgreen", "seagreen", "royalblue",
+               "skyblue","slateblue", "purple", "purple4", "black")
+plot(time_yr[1,], ytm[1,], type = "o", main = "Figure 1: YTM Curve",
+     xlab = "time to maturity (in years)", ylab = "YTM",
+     col="yellow3", ylim = c(0.002, 0.0175))
+for (i in 2:10) {
+  lines(time_yr[i,], ytm[i,], col=color_line[i-1], type = "o")
+}
+legend("bottomright", pch = c(15,15), 
+       legend = c("day1", "day2","day3", "day4", "day5", "day6",
+                  "day7", "day8", "day9", "day10"),
+       col=c("yellow3", color_line), lty=1.3, cex=0.6)
+
+# estimating YTM using linear interpolation
+years <- c(0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
+ytm_int <- matrix(rep(0,100), nrow=10, ncol=10, byrow = T)
+for (i in 1:10) {
+  for (j in 1:10) {
+    est_rate = ytm[i,j]+((ytm[i,(j+1)]-ytm[i,j])/
+      (time_yr[i,(j+1)]-time_yr[i,j]))*(years[j]-time_yr[i,j])
+    ytm_int[i,j]=est_rate
+  }
+}
+
+# plot estimated YTM using linear interpolation
+plot(years, ytm_int[1,], type = "o", 
+     main = "Figure 2: YTM Curve 
+     with Linear Interpolation", 
+     xlab = "time to maturity (in years)", 
+     ylab = "YTM (estimated)", col="yellow3",
+     ylim = c(0.002, 0.0175))
+for (i in 2:10) {
+  lines(years, ytm_int[i,], col=color_line[i-1], type = "o")
+}
+legend("bottomright", pch = c(15,15), 
+       legend = c("day1", "day2","day3", "day4", "day5", "day6",
+                  "day7", "day8", "day9", "day10"),
+       col=c("yellow3", color_line), lty=1.3, cex=0.6)
+
+```
+
+##### (b).
+
+By using formula $P=\sum_i^np_i(1+r/2)^{-t_i2}$ and bootstrapping method $P=\sum_i^{n-1}(1+r/2)^{-t_i2}+p_n(1+r/2)^{-t_n2}$, where the bond compounds semi-annually, $t_i$ for $i<n$ is known and $t_n$ is unknown, we compute the spot rate at each $t_n$. Recursively, we can get the spot curve in Figure 3.
+
+```{r, echo=F, message=F, warning=F, out.width="80%", out.height="80%"}
+# computing dirty price(=clean price+accrued interest)
+dirty_price <- matrix(rep(0, 110), nrow = 10, ncol = 11, byrow = T)
+for (j in 1:11) {
+  for (i in 1:10) {
+    dirty_price[i,j]=Close_Price[i,j]+
+      bond.TCF(settle = Close_Price_date[i],
+               mature = Maturity_date[j], 
+               coupon = Coupon[j]/100, freq = 2, 
+               convention = "ACT/ACT", 
+               redemption_value = 100)$accrued
+  }
+}
+
+#computing cashflow
+cf1=c(100.25)
+cf2=c(0.125, 100.125)
+cf3=c(0.875, 0.875, 100.875)
+cf4=c(rep(0.125, 3), 100.75)
+cf5=c(1.125, 1.125, 1.125, 1.125, 101.125)
+cf6=c(0.75, 0.75, 0.75, 0.75, 0.75, 100.75)
+cf7=c(0.625, 0.625, 0.625, 0.625, 0.625, 0.625, 100.625)
+cf8=c(rep(0.25, 7), 100.25)
+cf9=c(rep(0.125, 8), 100.125)
+cf10=c(rep(0.5, 9), 100.5)
+cf11=c(rep(0.625, 10), 100.625)
+
+#computing spot rate
+spot <- matrix(rep(0, 110), nrow = 10, ncol = 11, byrow = T)
+for (i in 1:10) {
+  t1=time_yr[i,1]
+  f1=function(x) dirty_price[i,1]-cf1[1]*exp(-x*t1)
+  s1=uniroot(f1, c(0,1))$root
+  
+  t2=time_yr[i,2]
+  f2=function(x) dirty_price[i,2]-cf2[1]*exp(-s1*t1)-
+    cf2[2]*exp(-x*t2)
+  s2=uniroot(f2, c(0,1))$root
+  
+  t3=time_yr[i,3]
+  f3=function(x) dirty_price[i,3]-cf3[1]*exp(-s1*t1)-
+    cf3[2]*exp(-s2*t2)-cf3[3]*exp(-x*t3)
+  s3=uniroot(f3, c(0,1))$root
+  
+  t4=time_yr[i,4]
+  f4=function(x) dirty_price[i,4]-cf4[1]*exp(-s1*t1)-
+    cf4[2]*exp(-s2*t2)-cf4[3]*exp(-s3*t3)-cf4[4]*exp(-x*t4)
+  s4=uniroot(f4, c(0,1))$root
+  
+  t5=time_yr[i,5]
+  f5=function(x) dirty_price[i,5]-cf5[1]*exp(-s1*t1)-
+    cf5[2]*exp(-s2*t2)-cf5[3]*exp(-s3*t3)-cf5[4]*exp(-s4*t4)-
+    cf5[5]*exp(-x*t5)
+  s5=uniroot(f5, c(0,1))$root
+  
+  t6=time_yr[i,6]
+  f6=function(x) dirty_price[i,6]-cf6[1]*exp(-s1*t1)-
+    cf6[2]*exp(-s2*t2)-cf6[3]*exp(-s3*t3)-cf6[4]*exp(-s4*t4)-
+    cf6[5]*exp(-s5*t5)-cf6[6]*exp(-x*t6)
+  s6=uniroot(f6, c(0,1))$root
+  
+  t7=time_yr[i,7]
+  f7=function(x) dirty_price[i,7]-cf7[1]*exp(-s1*t1)-
+    cf7[2]*exp(-s2*t2)-cf7[3]*exp(-s3*t3)-cf7[4]*exp(-s4*t4)-
+    cf7[5]*exp(-s5*t5)-cf7[6]*exp(-s6*t6)-cf7[7]*exp(-x*t7)
+  s7=uniroot(f7, c(0,1))$root
+  
+  t8=time_yr[i,8]
+  f8=function(x) dirty_price[i,8]-cf8[1]*exp(-s1*t1)-
+    cf8[2]*exp(-s2*t2)-cf8[3]*exp(-s3*t3)-cf8[4]*exp(-s4*t4)-
+    cf8[5]*exp(-s5*t5)-cf8[6]*exp(-s6*t6)-cf8[7]*exp(-s7*t7)-
+    cf8[8]*exp(-x*t8)
+  s8=uniroot(f8, c(0,1))$root
+  
+  t9=time_yr[i,9]
+  f9=function(x) dirty_price[i,9]-cf9[1]*exp(-s1*t1)-
+    cf9[2]*exp(-s2*t2)-cf9[3]*exp(-s3*t3)-cf9[4]*exp(-s4*t4)-
+    cf9[5]*exp(-s5*t5)-cf9[6]*exp(-s6*t6)-cf9[7]*exp(-s7*t7)-
+    cf9[8]*exp(-s8*t8)-cf9[9]*exp(-x*t9)
+  s9=uniroot(f9, c(0,1))$root
+  
+  t10=time_yr[i,10]
+  f10=function(x) dirty_price[i,10]-cf10[1]*exp(-s1*t1)-
+    cf10[2]*exp(-s2*t2)-cf10[3]*exp(-s3*t3)-cf10[4]*exp(-s4*t4)-
+    cf10[5]*exp(-s5*t5)-cf10[6]*exp(-s6*t6)-cf10[7]*exp(-s7*t7)-
+    cf10[8]*exp(-s8*t8)-cf10[9]*exp(-s9*t9)-cf10[10]*exp(-x*t10)
+  s10=uniroot(f10, c(0,1))$root
+  
+  t11=time_yr[i,11]
+  f11=function(x) dirty_price[i,11]-cf11[1]*exp(-s1*t1)-
+    cf11[2]*exp(-s2*t2)-cf11[3]*exp(-s3*t3)-cf11[4]*exp(-s4*t4)-
+    cf11[5]*exp(-s5*t5)-cf11[6]*exp(-s6*t6)-cf11[7]*exp(-s7*t7)-
+    cf11[8]*exp(-s8*t8)-cf11[9]*exp(-s9*t9)-cf11[10]*exp(-s10*t10)-
+    cf11[11]*exp(-x*t11)
+  s11=uniroot(f11, c(0,1))$root
+  spot[i,1]=s1
+  spot[i,2]=s2
+  spot[i,3]=s3
+  spot[i,4]=s4
+  spot[i,5]=s5
+  spot[i,6]=s6
+  spot[i,7]=s7
+  spot[i,8]=s8
+  spot[i,9]=s9
+  spot[i,10]=s10
+  spot[i,11]=s11
+}
+
+# plot spot curve
+par(mfrow=c(1,2))
+plot(time_yr[1,], spot[1,], type = "o", 
+     main = "Figure 3: Spot Curve", 
+     xlab = "time to maturity (in years)", ylab = "spot rate",
+     col="yellow3", ylim = c(0.002, 0.0175))
+for (i in 2:10) {
+  lines(time_yr[i,], spot[i,], col=color_line[i-1], type = "o")
+}
+legend("bottomright", pch = c(15,15), 
+       legend = c("day1", "day2","day3", "day4", "day5", "day6",
+                  "day7", "day8", "day9", "day10"),
+       col=c("yellow3", color_line), lty=1.3, cex=0.6)
+
+# part (c)
+# estimating spot rate using linear interpolation
+years <- c(0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5)
+spot_int <- matrix(rep(0,100), nrow=10, ncol=10, byrow = T)
+for (i in 1:10) {
+  for (j in 1:10) {
+    est_spot = spot[i,j]+((spot[i,(j+1)]-spot[i,j])/
+      (time_yr[i,(j+1)]-time_yr[i,j]))*(years[j]-time_yr[i,j])
+    spot_int[i,j]=est_spot
+  }
+}
+
+# get the estimated spot rate we need to compute forward rate
+spot_for <- matrix(rep(0, 50), nrow=10, ncol = 5)
+for (j in 1:5) {
+  spot_for[,j]=spot_int[,2*j]
+}
+
+# compute 1-year forward curve
+forward_rate <- matrix(rep(0, 40), nrow=10, ncol = 4)
+for (i in 1:10) {
+  for (j in 1:4) {
+    forward_rate[i,j] = (spot_for[i,j+1]*(j+1)-spot_for[i,1]) /j
+  }
+}
+
+# plotting the forward curve
+plot(c(2,3,4,5), forward_rate[1,], type = "o", 
+     main = "Figure 4: Forward Curve", 
+     xlab = "time to maturity (in years)", 
+     ylab = "Forward Rate", col="yellow3",
+     ylim = c(0.015, 0.02))
+for (i in 2:10) {
+  lines(c(2,3,4,5), forward_rate[i,], col=color_line[i-1], 
+        type = "o")
+}
+legend("topleft", pch = c(15,15), 
+       legend = c("day1", "day2","day3", "day4", "day5", "day6",
+                  "day7", "day8", "day9", "day10"),
+       col=c("yellow3", color_line), lty=1, cex=0.5)
+
+```
+
+##### (c).
+
+Similarly to part 4(a), we can use linear interpolation and get the spot curve with spot rate at time {1,2,3,4,5} years. Then applying the value to $r_{12}=-\frac{logP(t,T_2-logP(t,T_2))}{T_2-T_1}$, we can get the forward curve in Figure 4.
+
+
+### 5.
+
+The covariance matrix for daily log-returns of yield is: 
+$$
+\begin{pmatrix}
+0.001221 & 0.000945 & 0.000832 & 0.000743 & 0.000723 \\
+0.000945 & 0.000766 & 0.000688 & 0.000609 & 0.000595 \\
+0.000832 & 0.000688 & 0.000652 & 0.000589 & 0.000570  \\
+0.000743 & 0.000609 & 0.000589 & 0.000567 & 0.000540 \\
+0.000723 & 0.000595 & 0.000570 & 0.000540 & 0.000524
+\end{pmatrix}
+$$
+
+```{r, echo=F, message=F, warning=F, include=F}
+# computing log_YTM with YTM with linear interpolation
+log_YTM <- matrix(nrow=9, ncol=5)
+for (i in 1:9) {
+  for (j in 1:5) {
+    log_YTM[i,j] <- log(ytm_int[(i+1), (2*j)]/ytm_int[i,(2*j)])
+  }
+}
+
+
+# covariance matrix for log(YTM)
+cov_ytm <- cov(log_YTM)
+cov_ytm
+```
+
+The covariance matrix for daily log-returns of forward rate is:
+$$
+\begin{pmatrix}
+ 0.0004110427 & 0.0004583211 & 0.0004024626 & 0.0004015246\\
+ 0.0004583211 & 0.0005566225 & 0.0005063865 & 0.0004919808\\
+ 0.0004024626 & 0.0005063865 & 0.0005048462 & 0.0004791171 \\
+ 0.0004015246 & 0.0004919808 & 0.0004791171 & 0.0004671179
+\end{pmatrix}
+$$
+
+
+```{r, echo=F, message=F, warning=F, include=F}
+# computing log_forward
+log_forward <- matrix(nrow=9, ncol=4)
+for (i in 1:9) {
+  for (j in 1:4) {
+    log_forward[i,j] <- 
+      log(forward_rate[i+1, j]/forward_rate[i,j])
+  }
+}
+
+# covariance matrix for log(YTM)
+cov_fwd <- cov(log_forward)
+cov_fwd
+```
+
+### 6.
+
+The eigenvalues for covariance matrix of log yield are $e_{y1}=0.0035680$, $e_{y2}=0.0001281$, $e_{y3}=0.0000242$, $e_{y4}=0.0000056$, and $e_{y5}=0.0000034$, and the eigenvectors are $$v_{y1}=(-0.5706, -0.4587, -0.4215, -0.3843, -0.3723)^T$$ $$v_{y2}=(0.6518, 0.2155, -0.2530, -0.5172, -0.4441)^T$$ 
+$$v_{y3}=(-0.4377, 0.5568, 0.5388, -0.4082, -0.2037)^T$$ 
+$$v_{y4}=(0.1938, -0.5336, 0.6303, 0.1498, -0.5079)^T$$
+$$v_{y5}=(0.1429, -0.3853, 0.2659, -0.6291, 0.6039)^T$$
+
+The first eigenvalue is $e_{y1}=0.0035680$ tells us the about $\frac{e_{y1}}{\sum_{i=1}^5e_{yi}}\approx96$% of total variance is captured by the associated eigenvector, and the associated eigenvector implies the underlying trend of log-returns of yield. 
+
+```{r, echo=F, message=F, warning=F, include=F}
+eigen(cov_ytm)
+```
+
+\
+The eigenvalues for covariance matrix of log forward rate are $e_{f1}=0.00187295$, $e_{f2}=0.00006053$, $e_{f3}=0.00001179$, and $e_{f4}=0.00000436$, and the eigenvectors are:
+$$v_{f1}=(0.4492, 0.5416, 0.5097, 0.4951)^T,v_{f2}=(0.7347, 0.2102, -0.5600, -0.3200)^T$$
+$$v_{f3}=(-0.4319, 0.7831, -0.0173, -0.4471)^T, v_{f4}=(-0.2681, 0.2218, -0.6529, 0.6728)^T$$
+
+The first eigenvalue is $e_{f1}=0.00187295$ tells us the about $\frac{e_{f1}}{\sum_{i=1}^4e_{fi}}\approx96$% of total variance is captured by the associated eigenvector, and the associated eigenvector implies the underlying trend of log-returns of 1-year forward rate.
+
+```{r, echo=F, message=F, warning=F, include=F}
+eigen(cov_fwd)
+```
+
+
+## References and GitHub Link to Code
+
+https://github.com/Lynn-Y-L/APM466
